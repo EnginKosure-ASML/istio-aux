@@ -26,17 +26,15 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"com.github/datastrophic/istio-aux/pkg/istio-aux"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -70,8 +68,6 @@ func main() {
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
-		MetricsBindAddress:     metricsAddr,
-		Port:                   9443,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "52d60f8c.io.datastrophic",
@@ -81,20 +77,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	gvk := schema.GroupVersionKind{
-		Group:   "",
-		Version: "v1",
-		Kind:    "Pod",
-	}
-	restClient, err := apiutil.RESTClientForGVK(gvk, false, mgr.GetConfig(), serializer.NewCodecFactory(mgr.GetScheme()))
+	config := mgr.GetConfig()
+	restClient, err := rest.RESTClientFor(config)
 	if err != nil {
 		setupLog.Error(err, "unable to create REST client")
+		os.Exit(1)
 	}
 
 	if err = (&istioaux.PodReconciler{
 		Client:     mgr.GetClient(),
 		RESTClient: restClient,
-		RESTConfig: mgr.GetConfig(),
+		RESTConfig: config,
 		Scheme:     mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller")

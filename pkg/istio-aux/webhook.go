@@ -1,22 +1,3 @@
-/*
-Copyright 2021.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
-// +kubebuilder:webhook:path=/mutate-v1-pod,mutating=true,admissionReviewVersions=v1,failurePolicy=fail,groups="",resources=pods,verbs=create;update,versions=v1,sideEffects=None,name=istio-aux.datastrophic.io
-// +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;patch;delete
-// +kubebuilder:rbac:groups=core,resources=namespaces,verbs=get;list;watch
 package istioaux
 
 import (
@@ -30,6 +11,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
+// +kubebuilder:webhook:path=/mutate-v1-pod,mutating=true,failurePolicy=fail,groups="",resources=pods,verbs=create;update,versions=v1,name=mpod.kb.io,sideEffects=None,admissionReviewVersions=v1
+
 type PodMutator struct {
 	Client  client.Client
 	decoder *admission.Decoder
@@ -39,7 +22,7 @@ func (a *PodMutator) Handle(ctx context.Context, req admission.Request) admissio
 	logger := ctrl.Log.WithName("webhook")
 	pod := &corev1.Pod{}
 
-	err := a.decoder.Decode(req, pod)
+	err := (*a.decoder).Decode(req, pod)
 	if err != nil {
 		return admission.Errored(http.StatusBadRequest, err)
 	}
@@ -56,9 +39,9 @@ func (a *PodMutator) Handle(ctx context.Context, req admission.Request) admissio
 		  values: ["enabled"]
 	*/
 
-	logger.WithName("webhook").Info("processing", "pod-generate-name", pod.GenerateName, "pod-name", pod.ObjectMeta.Name)
+	logger.Info("processing", "pod-generate-name", pod.GenerateName, "pod-name", pod.ObjectMeta.Name)
 	SetMetadata(&pod.ObjectMeta)
-	logger.WithName("webhook").Info("processed", "pod-generate-name", pod.GenerateName, "pod-name", pod.ObjectMeta.Name)
+	logger.Info("processed", "pod-generate-name", pod.GenerateName, "pod-name", pod.ObjectMeta.Name)
 
 	marshaledPod, err := json.Marshal(pod)
 	if err != nil {
